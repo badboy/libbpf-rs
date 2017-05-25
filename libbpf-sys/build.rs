@@ -31,14 +31,19 @@ fn write_kernel_version(ver: u32) {
     writeln!(file, "pub const KERNEL_VERSION : u32 = {};", ver).unwrap();
 }
 
+fn kernel_env(kernel_ver: u32, maj: u32, min: u32) {
+    if kernel_ver >= kernel_version(maj,min,0) {
+        println!("cargo:rustc-cfg=kernelv{}{}", maj, min);
+        println!("cargo:kernelv{}{}=1", maj, min);
+    }
+}
+
 fn main() {
     let kernel_ver = get_kernel_version();
     println!("cargo:rustc-env=KERNEL_VERSION={}", kernel_ver);
     write_kernel_version(kernel_ver);
 
-    if kernel_ver >= kernel_version(4,12,0) {
-        println!("cargo:rustc-cfg=kernelv412");
-    }
+    kernel_env(kernel_ver, 4,12);
 
     gcc::compile_library("libbpf.a", &["src/bpf.c"]);
 }
