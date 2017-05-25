@@ -94,7 +94,6 @@ impl Default for TestResult {
     }
 }
 
-
 impl Prog {
     pub fn load(typ: ProgType, insns: &[u8], license: &str) -> io::Result<Prog> {
         const INSN_SIZE : usize = 8;
@@ -200,5 +199,20 @@ impl Drop for Prog {
         unsafe {
             libc::close(self.fd);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn load_prog() {
+        let prog = [
+            0xb4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov32 r0, 0
+            0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // exit
+        ];
+
+        Prog::load(ProgType::SocketFilter, &prog, "GPL").unwrap();
     }
 }

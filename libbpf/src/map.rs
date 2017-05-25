@@ -262,3 +262,71 @@ impl<'a> Iterator for MapIterator<'a> {
         Some((next_key, value))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::mem;
+
+    #[test]
+    fn create_map() {
+        Map::create(MapType::Hash,
+                    mem::size_of::<u32>(),
+                    mem::size_of::<u32>(),
+                    32).unwrap();
+    }
+
+    #[test]
+    fn add_to_map() {
+        let map = Map::create(MapType::Hash,
+                    mem::size_of::<u32>(),
+                    mem::size_of::<u32>(),
+                    32).unwrap();
+
+        let key = [1,2,3,4];
+        assert!(map.lookup(&key).is_err());
+        let value = [42,42,42,42];
+        map.insert(&key, &value).unwrap();
+    }
+
+    #[test]
+    fn lookup_in_map() {
+        let map = Map::create(MapType::Hash,
+                    mem::size_of::<u32>(),
+                    mem::size_of::<u32>(),
+                    32).unwrap();
+
+        let key = [1,2,3,4];
+        let value = [42,42,42,42];
+        map.insert(&key, &value).unwrap();
+
+        assert_eq!(map.lookup(&key).unwrap(), &value[..]);
+    }
+
+    #[test]
+    fn iterate() {
+        let map = Map::create(MapType::Hash,
+                    mem::size_of::<u32>(),
+                    mem::size_of::<u32>(),
+                    32).unwrap();
+
+        let mut key = [1,0,0,0];
+        let value = [42,42,42,42];
+
+        let mut expected_sum = 0;
+        for i in 1..5 {
+            expected_sum += i;
+            key[0] = i;
+            map.insert(&key, &value).unwrap();
+        }
+
+        let mut sum = 0;
+        for (key, val) in &map {
+            sum += key[0];
+            assert_eq!(0, key[1]);
+            assert_eq!(val, value);
+        }
+
+        assert_eq!(expected_sum, sum);
+    }
+}
