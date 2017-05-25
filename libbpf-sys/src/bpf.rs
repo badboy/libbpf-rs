@@ -1052,7 +1052,7 @@ extern "C" {
 extern "C" {
     pub fn bpf_prog_test_run(prog_fd: ::std::os::raw::c_int,
                              repeat: ::std::os::raw::c_int,
-                             data: *mut ::std::os::raw::c_void, size: __u32,
+                             data: *const ::std::os::raw::c_void, size: __u32,
                              data_out: *mut ::std::os::raw::c_void,
                              size_out: *mut __u32, retval: *mut __u32,
                              duration: *mut __u32) -> ::std::os::raw::c_int;

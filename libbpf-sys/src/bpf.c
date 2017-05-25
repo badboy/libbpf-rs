@@ -240,7 +240,7 @@ int bpf_prog_detach(int target_fd, enum bpf_attach_type type)
 }
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,12,0)
-int bpf_prog_test_run(int prog_fd, int repeat, void *data, __u32 size,
+int bpf_prog_test_run(int prog_fd, int repeat, const void *data, __u32 size,
 		      void *data_out, __u32 *size_out, __u32 *retval,
 		      __u32 *duration)
 {
