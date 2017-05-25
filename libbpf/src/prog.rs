@@ -9,6 +9,10 @@ use std::ptr;
 
 use utils::*;
 
+/// Types of a eBPF program
+///
+/// These are kept in sync with prog types available in the kernel.
+/// Newer types are only available on newer kernels.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[repr(u32)]
 pub enum ProgType {
@@ -50,6 +54,7 @@ impl ProgType {
     }
 }
 
+/// When attached to cgroups, a eBPF prog can act on ingress, egress or socket creation.
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum AttachType {
@@ -71,17 +76,21 @@ impl AttachType {
     }
 }
 
-/// A loaded eBPF program
+/// A loaded eBPF program.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Prog {
     fd: RawFd,
 }
 
+/// Results from a eBPF test run.
 #[derive(Debug)]
 pub struct TestResult {
-    data: Vec<u8>,
-    retval: u32,
-    duration: u32,
+    /// Contains the (possibly modified) context object.
+    pub data: Vec<u8>,
+    /// Represents the return value of the eBPF program. Its meaning depends on the type of.
+    pub retval: u32,
+    /// Time it took to run the test.
+    pub duration: u32,
 }
 
 impl Default for TestResult {
@@ -95,6 +104,13 @@ impl Default for TestResult {
 }
 
 impl Prog {
+    /// Load a eBPF program into the kernel
+    ///
+    /// * `typ`: Specify the type of the program. Different types have access to different helper
+    ///   functions and get a different type of context object when invoked.
+    /// * `insns` are the raw eBPF bytecode instructions of the program.
+    /// * `license`: The kernel requires a license for every loaded program. Certain functionality
+    ///   is disabled for non-GPL programs.
     pub fn load(typ: ProgType, insns: &[u8], license: &str) -> io::Result<Prog> {
         const INSN_SIZE : usize = 8;
         assert!(insns.len() % INSN_SIZE == 0);
@@ -137,12 +153,16 @@ impl Prog {
         }
     }
 
-    pub fn from_rawfd(fd: RawFd) -> Prog {
+    /// Get a `Prog` object form a raw file descriptor.
+    ///
+    /// No checks on the validity of this file descriptor are performed.
+    pub unsafe fn from_rawfd(fd: RawFd) -> Prog {
         Prog {
             fd: fd
         }
     }
 
+    /// Attach this eBPF prog to the specified cgroup, identified by a file descriptor.
     pub fn attach(&self, attachable_fd: RawFd, typ: AttachType, flags: c_uint) -> io::Result<()> {
         unsafe {
             err_check(libbpf_sys::bpf_prog_attach(
@@ -153,6 +173,7 @@ impl Prog {
         }
     }
 
+    /// Deattach this eBPF prog from the specified cgroup, identified by a file descriptor.
     pub fn deattach(&self, attachable_fd: RawFd, typ: AttachType) -> io::Result<()> {
         unsafe {
             err_check(libbpf_sys::bpf_prog_detach(attachable_fd, typ.as_bpf_attach_type()))
@@ -160,6 +181,9 @@ impl Prog {
     }
 
     #[cfg(kernelv412)]
+    /// Run the loaded eBPF program several times for testing.
+    ///
+    /// Specify the number of iterations the eBPF prog should be run in the kernel.
     pub fn test_run(&self, repeat: c_int, data: &[u8]) -> io::Result<TestResult> {
         unsafe {
             let mut result = TestResult::default();
@@ -176,6 +200,14 @@ impl Prog {
         }
     }
 
+    /// Persist an eBPF prog to a special filesystem.
+    ///
+    /// Usually the eBPF filesystem is exposed under `/sys/fs/bpf`.
+    /// You can mount this filesystem using:
+    ///
+    /// ```text
+    /// mount -t bpf none /sys/fs/bpf
+    /// ```
     pub fn pin(&self, pathname: &str) -> io::Result<()> {
         let cstr = CString::new(pathname).unwrap();
 
@@ -184,6 +216,9 @@ impl Prog {
         }
     }
 
+    /// Load prog information from a path to a persisted eBPF prog.
+    ///
+    /// Returns an IO error if anything goes wrong.
     pub fn from_path(pathname: &str) -> io::Result<Prog> {
         let cstr = CString::new(pathname).unwrap();
 

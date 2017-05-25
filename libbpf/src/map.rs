@@ -17,9 +17,10 @@ use std::ptr;
 use utils::*;
 use bpf;
 
-/// Possible types for BPF maps.
+/// Type of a eBPF map
 ///
-/// This must be kept in sync with map types available in the kernel.
+/// These are kept in sync with map types available in the kernel.
+/// Newer types are only available on newer kernels.
 ///
 /// Certain map types do not expose functionality to lookup elements or iterate through keys.
 #[repr(u32)]
@@ -65,7 +66,30 @@ impl MapType {
     }
 }
 
-/// A loaded eBPF map
+impl From<u8> for MapType {
+    fn from(val: u8) -> MapType {
+        use self::MapType::*;
+
+        match val {
+            0 => Unspec,
+            1 => Hash,
+            2 => Array,
+            3 => ProgArray,
+            4 => PerfEventArray,
+            5 => PerCPUHash,
+            6 => PerCPUArray,
+            7 => StackTrace,
+            8 => CgroupArray,
+            9 => LRUHash,
+            10 => LRUPerCPUHash,
+            11 => LPMTrie,
+            _ => panic!("Invalid map type number"),
+        }
+    }
+}
+
+
+/// A loaded eBPF map.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Map {
     /// The file descriptor of the map
@@ -86,33 +110,6 @@ impl Drop for Map {
     fn drop(&mut self) {
         unsafe {
             libc::close(self.fd);
-        }
-    }
-}
-
-pub struct MapIterator<'a> {
-    map: &'a Map,
-    key: Vec<u8>,
-}
-
-impl From<u8> for MapType {
-    fn from(val: u8) -> MapType {
-        use self::MapType::*;
-
-        match val {
-            0 => Unspec,
-            1 => Hash,
-            2 => Array,
-            3 => ProgArray,
-            4 => PerfEventArray,
-            5 => PerCPUHash,
-            6 => PerCPUArray,
-            7 => StackTrace,
-            8 => CgroupArray,
-            9 => LRUHash,
-            10 => LRUPerCPUHash,
-            11 => LPMTrie,
-            _ => panic!("Invalid map type number"),
         }
     }
 }
@@ -140,7 +137,7 @@ impl Display for Map {
 }
 
 impl Map {
-    /// Load map information from a path to a persisted BPF map
+    /// Load map information from a path to a persisted eBPF map.
     ///
     /// Returns an IO error if anything goes wrong.
     pub fn from_path(pathname: &str) -> io::Result<Map> {
@@ -175,6 +172,9 @@ impl Map {
         Ok(m)
     }
 
+    /// Create a map.
+    ///
+    /// The map is closed and deleted when it goes out of scope.
     pub fn create(typ: MapType, key_size: usize, value_size: usize, max_entries: usize) -> io::Result<Map> {
         unsafe {
             let flags = 0;
@@ -195,12 +195,14 @@ impl Map {
         }
     }
 
+    /// Look up an element by key and return its value
     pub fn lookup(&self, key: &[u8]) -> io::Result<Vec<u8>> {
         assert!(key.len() == self.key_size);
 
         bpf::lookup_elem(self.fd, key, self.value_size)
     }
 
+    /// Create or update an element (key/value pair)
     pub fn insert(&self, key: &[u8], value: &[u8]) -> io::Result<()> {
         assert!(key.len() == self.key_size);
         assert!(value.len() == self.value_size);
@@ -208,18 +210,30 @@ impl Map {
         bpf::update_elem(self.fd, key, value, 0)
     }
 
+    /// Look up and delete an element by key
     pub fn delete(&self, key: &[u8]) -> io::Result<()> {
         assert!(key.len() == self.key_size);
 
         bpf::delete_elem(self.fd, key)
     }
 
+    /// Look up an element by key in a specified map and return the key of the next element.
+    ///
+    /// Use a [`MapIterator`](struct.MapIterator.html) for easier handling of this.
     pub fn get_next_key(&self, key: &[u8]) -> io::Result<Vec<u8>> {
         assert!(key.len() == self.key_size);
 
         bpf::get_next_key(self.fd, key, self.key_size)
     }
 
+    /// Persist an eBPF map to a special filesystem.
+    ///
+    /// Usually the eBPF filesystem is exposed under `/sys/fs/bpf`.
+    /// You can mount this filesystem using:
+    ///
+    /// ```text
+    /// mount -t bpf none /sys/fs/bpf
+    /// ```
     pub fn pin(&self, pathname: &str) -> io::Result<()> {
         let cstr = CString::new(pathname).unwrap();
 
@@ -227,6 +241,15 @@ impl Map {
             err_check(libbpf_sys::bpf_obj_pin(self.fd, cstr.as_ptr()))
         }
     }
+}
+
+/// Iterate over the key/value pairs of a map (if possible).
+///
+/// Not all map types allow for iteration of the keys.
+/// The iterator will simply not return anything for those.
+pub struct MapIterator<'a> {
+    map: &'a Map,
+    key: Vec<u8>,
 }
 
 impl<'a> IntoIterator for &'a Map {

@@ -7,12 +7,15 @@ mod utils;
 mod map;
 mod prog;
 
-pub use map::{Map, MapType};
-pub use prog::{Prog, ProgType};
+pub use map::{
+    Map,
+    MapType,
+    MapIterator
+};
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-    }
-}
+pub use prog::{
+    Prog,
+    ProgType,
+    TestResult,
+    AttachType
+};
