@@ -114,6 +114,28 @@ impl Prog {
         }
     }
 
+    #[cfg(kernelv412)]
+    pub fn verify(typ: ProgType, insns: &[u8], license: &str, strict_alignment: bool) -> io::Result<Prog> {
+        const INSN_SIZE : usize = 8;
+        assert!(insns.len() % INSN_SIZE == 0);
+
+        let license = CString::new(license).unwrap();
+        let insns_cnt = insns.len() / INSN_SIZE;
+
+        unsafe {
+            val_check(libbpf_sys::bpf_verify_program(
+                    typ.as_bpf_prog_type(),
+                    insns.as_ptr() as *const _,
+                    insns_cnt,
+                    if strict_alignment { 1 } else { 0 },
+                    license.as_ptr(),
+                    libbpf_sys::KERNEL_VERSION,
+                    ptr::null_mut(),
+                    0))
+                .map(|fd| Prog { fd })
+        }
+    }
+
     pub fn from_rawfd(fd: RawFd) -> Prog {
         Prog {
             fd: fd
