@@ -1,7 +1,7 @@
 extern crate libbpf;
 
 use std::mem;
-use libbpf::map::{Map, MapType};
+use libbpf::{Map, MapType};
 
 fn main() {
     let map = Map::create(MapType::Hash,

@@ -9,3 +9,5 @@ build = "build.rs"
 libc = "0.2.23"
 libbpf-sys = { version = "0.1.0", path = "../libbpf-sys" }
 
+[dev-dependencies]
+rbpf = { git = "https://github.com/qmonnet/rbpf" }
