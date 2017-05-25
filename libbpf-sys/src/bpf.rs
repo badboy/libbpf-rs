@@ -331,6 +331,9 @@ pub enum bpf_map_type {
     BPF_MAP_TYPE_CGROUP_ARRAY = 8,
     BPF_MAP_TYPE_LRU_HASH = 9,
     BPF_MAP_TYPE_LRU_PERCPU_HASH = 10,
+    BPF_MAP_TYPE_LPM_TRIE = 11,
+    BPF_MAP_TYPE_ARRAY_OF_MAPS = 12,
+    BPF_MAP_TYPE_HASH_OF_MAPS = 13,
 }
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]

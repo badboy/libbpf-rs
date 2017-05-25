@@ -34,8 +34,9 @@ pub enum MapType {
     CgroupArray,
     LRUHash,
     LRUPerCPUHash,
-    #[cfg(kernelv412)]
     LPMTrie,
+    ArrayOfMaps,
+    HashOfMaps,
 }
 
 impl MapType {
@@ -55,8 +56,9 @@ impl MapType {
             CgroupArray        => BPF_MAP_TYPE_CGROUP_ARRAY,
             LRUHash            => BPF_MAP_TYPE_LRU_HASH,
             LRUPerCPUHash      => BPF_MAP_TYPE_LRU_PERCPU_HASH,
-            #[cfg(kernelv412)]
-            LPMTrie            => BPF_MAP_TYPE_LPMTrie,
+            LPMTrie            => BPF_MAP_TYPE_LPM_TRIE,
+            ArrayOfMaps        => BPF_MAP_TYPE_ARRAY_OF_MAPS,
+            HashOfMaps         => BPF_MAP_TYPE_HASH_OF_MAPS,
         }
     }
 }
@@ -99,7 +101,6 @@ impl From<u8> for MapType {
             8 => CgroupArray,
             9 => LRUHash,
             10 => LRUPerCPUHash,
-            #[cfg(kernelv412)]
             11 => LPMTrie,
             _ => panic!("Invalid map type number"),
         }
