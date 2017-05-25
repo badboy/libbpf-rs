@@ -65,21 +65,21 @@ impl MapType {
     }
 }
 
-/// A Map represents metainformation about a BPF map
+/// A loaded eBPF map
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Map {
     /// The file descriptor of the map
-    pub fd: RawFd,
+    fd: RawFd,
     /// Type of the map
-    pub map_type: MapType,
+    map_type: MapType,
     /// Size of keys in the map, in bytes
-    pub key_size: usize,
+    key_size: usize,
     /// Size of values in the map, in bytes
-    pub value_size: usize,
+    value_size: usize,
     /// The maximum number of entries this map can hold
-    pub max_entries: usize,
+    max_entries: usize,
     /// Additional flags set at creation
-    pub flags: usize,
+    flags: usize,
 }
 
 impl Drop for Map {

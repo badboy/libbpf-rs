@@ -71,7 +71,7 @@ impl AttachType {
     }
 }
 
-/// A BPF prog
+/// A loaded eBPF program
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Prog {
     fd: RawFd,
