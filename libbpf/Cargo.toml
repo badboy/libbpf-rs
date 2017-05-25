@@ -6,5 +6,6 @@ authors = ["Jan-Erik Rediger <janerik@fnordig.de>"]
 build = "build.rs"
 
 [dependencies]
+libc = "0.2.23"
 libbpf-sys = { version = "0.1.0", path = "../libbpf-sys" }
 

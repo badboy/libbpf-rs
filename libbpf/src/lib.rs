@@ -1,10 +1,14 @@
+extern crate libc;
 extern crate libbpf_sys;
 
 mod bpf;
 mod utils;
 
-pub mod map;
-pub mod prog;
+mod map;
+mod prog;
+
+pub use map::{Map, MapType};
+pub use prog::{Prog, ProgType};
 
 #[cfg(test)]
 mod tests {

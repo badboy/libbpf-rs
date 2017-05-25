@@ -1,9 +1,11 @@
+use libc;
+use libbpf_sys;
+
 use std::os::unix::io::RawFd;
 use std::os::raw::c_uint;
 use std::ffi::CString;
 use std::io;
 use std::ptr;
-use libbpf_sys;
 
 use utils::*;
 
@@ -70,7 +72,7 @@ impl AttachType {
 }
 
 /// A BPF prog
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Prog {
     fd: RawFd,
 }
@@ -193,3 +195,10 @@ impl Prog {
     }
 }
 
+impl Drop for Prog {
+    fn drop(&mut self) {
+        unsafe {
+            libc::close(self.fd);
+        }
+    }
+}

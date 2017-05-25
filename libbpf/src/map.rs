@@ -1,3 +1,6 @@
+use libc;
+use libbpf_sys;
+
 use std::os::unix::io::RawFd;
 use std::os::raw::{c_int, c_uint};
 use std::default::Default;
@@ -10,7 +13,6 @@ use std::io::prelude::*;
 use std::iter::Iterator;
 use std::iter::IntoIterator;
 use std::ptr;
-use libbpf_sys;
 
 use utils::*;
 use bpf;
@@ -64,7 +66,7 @@ impl MapType {
 }
 
 /// A Map represents metainformation about a BPF map
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Map {
     /// The file descriptor of the map
     pub fd: RawFd,
@@ -78,6 +80,14 @@ pub struct Map {
     pub max_entries: usize,
     /// Additional flags set at creation
     pub flags: usize,
+}
+
+impl Drop for Map {
+    fn drop(&mut self) {
+        unsafe {
+            libc::close(self.fd);
+        }
+    }
 }
 
 pub struct MapIterator<'a> {
