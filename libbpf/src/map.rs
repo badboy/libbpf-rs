@@ -1,14 +1,18 @@
 use std::os::unix::io::RawFd;
+use std::os::raw::{c_int, c_uint};
 use std::default::Default;
 use std::convert::From;
 use std::fmt::{self, Display};
 use std::fs::File;
+use std::ffi::CString;
 use std::io;
 use std::io::prelude::*;
 use std::iter::Iterator;
 use std::iter::IntoIterator;
 use std::ptr;
+use libbpf_sys;
 
+use utils::*;
 use bpf;
 
 /// Possible types for BPF maps.
@@ -16,8 +20,8 @@ use bpf;
 /// This must be kept in sync with map types available in the kernel.
 ///
 /// Certain map types do not expose functionality to lookup elements or iterate through keys.
-#[derive(Debug)]
-#[repr(u8)]
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum MapType {
     Unspec,
     Hash,
@@ -34,6 +38,29 @@ pub enum MapType {
     LPMTrie,
 }
 
+impl MapType {
+    fn as_bpf_map_type(&self) -> libbpf_sys::bpf_map_type {
+        use self::MapType::*;
+        use libbpf_sys::bpf_map_type::*;
+
+        match *self {
+            Unspec             => BPF_MAP_TYPE_UNSPEC,
+            Hash               => BPF_MAP_TYPE_HASH,
+            Array              => BPF_MAP_TYPE_ARRAY,
+            ProgArray          => BPF_MAP_TYPE_PROG_ARRAY,
+            PerfEventArray     => BPF_MAP_TYPE_PERF_EVENT_ARRAY,
+            PerCPUHash         => BPF_MAP_TYPE_PERCPU_HASH,
+            PerCPUArray        => BPF_MAP_TYPE_PERCPU_ARRAY,
+            StackTrace         => BPF_MAP_TYPE_STACK_TRACE,
+            CgroupArray        => BPF_MAP_TYPE_CGROUP_ARRAY,
+            LRUHash            => BPF_MAP_TYPE_LRU_HASH,
+            LRUPerCPUHash      => BPF_MAP_TYPE_LRU_PERCPU_HASH,
+            #[cfg(kernelv412)]
+            LPMTrie            => BPF_MAP_TYPE_LPMTrie,
+        }
+    }
+}
+
 /// A Map represents metainformation about a BPF map
 #[derive(Debug)]
 pub struct Map {
@@ -48,7 +75,7 @@ pub struct Map {
     /// The maximum number of entries this map can hold
     pub max_entries: usize,
     /// Additional flags set at creation
-    pub map_flags: usize,
+    pub flags: usize,
 }
 
 pub struct MapIterator<'a> {
@@ -87,7 +114,7 @@ impl Default for Map {
             key_size: 0,
             value_size: 0,
             max_entries: 0,
-            map_flags: 0,
+            flags: 0,
         }
     }
 }
@@ -106,10 +133,7 @@ impl Map {
     ///
     /// Returns an IO error if anything goes wrong.
     pub fn from_path(pathname: &str) -> io::Result<Map> {
-        let fd = bpf::obj_get_fd(pathname);
-        if fd < 0 {
-            return Err(io::Error::last_os_error());
-        }
+        let fd = bpf::obj_get_fd(pathname)?;
 
         let fdinfo = format!("/proc/self/fdinfo/{}", fd);
         let mut infofile = File::open(fdinfo)?;
@@ -132,12 +156,32 @@ impl Map {
                 "key_size:" => m.key_size = val.parse::<usize>().unwrap(),
                 "value_size:" => m.value_size = val.parse::<usize>().unwrap(),
                 "max_entries:" => m.max_entries = val.parse::<usize>().unwrap(),
-                "map_flags:" => m.map_flags = usize::from_str_radix(&val[2..], 16).unwrap(),
+                "map_flags:" => m.flags = usize::from_str_radix(&val[2..], 16).unwrap(),
                 _ => {}
             }
         }
 
         Ok(m)
+    }
+
+    pub fn create(typ: MapType, key_size: usize, value_size: usize, max_entries: usize) -> io::Result<Map> {
+        unsafe {
+            let flags = 0;
+            let fd = val_check(libbpf_sys::bpf_create_map(typ.as_bpf_map_type(),
+                                                 key_size as c_int,
+                                                 value_size as c_int,
+                                                 max_entries as c_int,
+                                                 flags as c_uint))?;
+
+            Ok(Map {
+                fd: fd,
+                map_type: typ,
+                key_size: key_size,
+                value_size: value_size,
+                max_entries: max_entries,
+                flags: flags
+            })
+        }
     }
 
     pub fn lookup(&self, key: &[u8]) -> io::Result<Vec<u8>> {
@@ -163,6 +207,14 @@ impl Map {
         assert!(key.len() == self.key_size);
 
         bpf::get_next_key(self.fd, key, self.key_size)
+    }
+
+    pub fn pin(&self, pathname: &str) -> io::Result<()> {
+        let cstr = CString::new(pathname).unwrap();
+
+        unsafe {
+            err_check(libbpf_sys::bpf_obj_pin(self.fd, cstr.as_ptr()))
+        }
     }
 }
 

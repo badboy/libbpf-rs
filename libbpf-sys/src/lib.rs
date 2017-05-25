@@ -3,3 +3,4 @@
 #![allow(non_snake_case)]
 
 include!("bpf.rs");
+include!(concat!(env!("OUT_DIR"), "/version.rs"));

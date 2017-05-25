@@ -3,14 +3,8 @@ use std::os::raw::c_int;
 use std::ffi::CString;
 use std::io;
 
+use utils::*;
 use libbpf_sys::*;
-
-fn err_check(res: c_int) -> io::Result<()> {
-    if res < 0 {
-        return Err(io::Error::last_os_error());
-    }
-    Ok(())
-}
 
 /// Lookup an element from the map
 pub fn lookup_elem(fd: c_int, key: &[u8], value_size: usize) -> io::Result<Vec<u8>> {
@@ -60,19 +54,10 @@ pub fn get_next_key(fd: c_int, old_key: &[u8], key_size: usize) -> io::Result<Ve
 }
 
 /// Get a file descriptor from a path to a persisted BPF map
-pub fn obj_get_fd(pathname: &str) -> RawFd {
+pub fn obj_get_fd(pathname: &str) -> io::Result<RawFd> {
     let cstr = CString::new(pathname).unwrap();
 
     unsafe {
-        bpf_obj_get(cstr.as_ptr())
-    }
-}
-
-/// Pin a file descriptor to a path
-pub fn obj_pin_fd(fd: c_int, pathname: &str) -> io::Result<()> {
-    let cstr = CString::new(pathname).unwrap();
-
-    unsafe {
-        err_check(bpf_obj_pin(fd, cstr.as_ptr()))
+        val_check(bpf_obj_get(cstr.as_ptr()))
     }
 }
